@@ -1,0 +1,31 @@
+name: ci/cd
+
+on: [push]
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.9
+
+    - name: Install dev dependencies
+      run: python -m pip install -r requirements-dev.txt
+
+    - name: Analyse the code with black
+      run: black . --check --verbose --diff --color
+
+    - name: Analyse imports with isort
+      run: isort . --check --diff --color
+
+    - name: Install dependencies
+      run: python -m pip install -r requirements.txt
+
+    - name: Run tests
+      run: python -m unittest discover -v -s tests
