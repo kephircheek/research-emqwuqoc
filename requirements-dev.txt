@@ -1,0 +1,2 @@
+black[jupyter]==23.3.0
+isort[colors]==5.12.0
