@@ -1,4 +1,4 @@
-from IPython.display import display, Math
+from IPython.display import Math, display
 
 
 def print_math(expr):
