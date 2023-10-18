@@ -1,1 +1,1 @@
-from .animation import animate_state_evolution_on_bloch_sphere
+from .animation import BlochAnimation
