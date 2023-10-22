@@ -1,19 +1,19 @@
-import pathlib, sys
+import pathlib
+import sys
 
 sys.path.append(str(pathlib.Path(sys.path[0]) / "libs"))
 
+import math
 from dataclasses import replace
 
-import math
+import bec
+import matplotlib.pyplot as plt
 import numpy as np
 import qutip
 from qutip.control.pulseoptim import optimize_pulse
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-
-import bec
 from tools.jupyter import print_model_info
 from tools.qutip import TqdmProgressBar
+from tqdm import tqdm
 
 n_bosons = 3
 phase = 0  # np.pi / 4
