@@ -4,9 +4,7 @@ import qutip
 from matplotlib import animation
 
 
-
 class BlochAnimation:
-
     def __init__(self, states, target):
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(projection="3d")
