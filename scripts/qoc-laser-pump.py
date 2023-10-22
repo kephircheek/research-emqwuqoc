@@ -1,4 +1,5 @@
 import pathlib, sys
+
 sys.path.append(str(pathlib.Path(sys.path[0]) / "libs"))
 
 from dataclasses import replace
@@ -24,14 +25,19 @@ model = bec.BEC_Qubits.init_default(
 )
 ecmodel = replace(model, excitation_level=True, communication_line=True)
 
+
 def h_drift(m, n=2):
     return bec.h_int(m, n=n) + m.delta_l * (
         bec.e(m, n=n, k=0).dag() * bec.e(m, n=n, k=0)
         + bec.e(m, n=n, k=1).dag() * bec.e(m, n=n, k=1)
     )
 
+
 def h_control(m, i, n=2):
-    return bec.e(m, n=n, k=i).dag() * bec.b(m, n=n, k=i) + bec.b(m, n=n, k=i).dag() * bec.e(m, n=n, k=i)
+    return bec.e(m, n=n, k=i).dag() * bec.b(m, n=n, k=i) + bec.b(
+        m, n=n, k=i
+    ).dag() * bec.e(m, n=n, k=i)
+
 
 psi_initial = (
     bec.coherent_state_constructor(ecmodel, n=2, k=0)
@@ -44,7 +50,7 @@ H1 = h_control(ecmodel, 0)
 H2 = h_control(ecmodel, 1)
 
 nt = 300
-t_total = 2 / model.Omega / 2 # 5
+t_total = 2 / model.Omega / 2  # 5
 
 tspan, dt = np.linspace(0, t_total, nt, retstep=True)
 evolution = qutip.mesolve(
@@ -55,9 +61,7 @@ evolution = qutip.mesolve(
     options=qutip.Options(nsteps=1e5),
 )
 
-entropy = [
-    qutip.entropy_vn(qutip.ptrace(s, [0, 1])) for s in tqdm(evolution.states)
-]
+entropy = [qutip.entropy_vn(qutip.ptrace(s, [0, 1])) for s in tqdm(evolution.states)]
 
 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
 
