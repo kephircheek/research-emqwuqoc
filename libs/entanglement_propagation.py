@@ -52,7 +52,7 @@ def f_state(t: float, p: int, k: tuple[int], m: int, n: int):
 
     Args:
         t: time of evolution
-        k: mesu
+        k: measured values
         p: some project state number
         m: number of qubits in chain
         n: number of bosons in qubit
