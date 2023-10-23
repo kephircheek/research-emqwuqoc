@@ -75,9 +75,9 @@ def f_state_odd(t: float, p: int, k: tuple[int], m: int, n: int):
             *itertools.chain(
                 *itertools.zip_longest(
                     (
-                        range(n + 1) for _ in range(0, m - 1, 2)
+                        range(n + 1) for _ in range(0, m // 2)
                     ),  # since last range added below)
-                    ([k] for k in k),
+                    ([k_] for k_ in k),
                 ),
                 [range(n + 1)]
             )
