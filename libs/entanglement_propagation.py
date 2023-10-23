@@ -12,7 +12,6 @@ def xi(j: int, k: tuple[int], n: int):
 
 def omega(t: float, j: int, k: tuple[int], n: int):
     """See Eq.13."""
-    # print((j, math.comb(n, k[j])))
     return (
         math.sqrt(math.comb(n, k[j]))
         * math.cos((xi(j - 1, k, n) + xi(j + 1, k, n)) * t) ** k[j]
@@ -21,7 +20,6 @@ def omega(t: float, j: int, k: tuple[int], n: int):
 
 
 def p_state_scalar_lm(l: int, m: int, p: int, k: int, n: int):
-    # print(math.factorial(l + m) * math.factorial(n - l - m))
     return (
         (-1) ** (n - k - m)
         * math.comb(k, l)
@@ -86,15 +84,9 @@ def f_state_odd(t: float, p: int, k: tuple[int], m: int, n: int):
         )
     )
     return sum(f_state_odd_k(t, p, k, m, n) for k in k_sets) / norm
-    # return sum(abs(f_state_odd_k(t, p, k, m, n))**2 for k in k_sets) / norm / norm_
 
 
 def f_state_odd_k(t: float, p: int, k: tuple[int], m: int, n: int):
-    # print("k", k)
-    # print(list((i, math.comb(n, k[i])) for i in range(0, m, 2)))
-    # print("<p|ki>", list(p_state_scalar(p, k[i], n) for i in range(2, m - 2, 2)))
-    # return math.prod(math.comb(n, ki) for ki in k) \
-    # return math.sqrt(math.prod(math.comb(n, k[i]) for i in range(0, m, 2))) \
     result = (
         math.sqrt(math.prod(math.comb(n, k[i]) for i in range(0, m, 2)))
         * math.prod(omega(t, j, k, n) for j in range(1, m - 1, 2))
@@ -115,30 +107,3 @@ def rhob(s, n):
         )
 
     rhob_k = sum(k(i) for i in range(n + 1))
-
-
-if __name__ == "__main__":
-    pass
-    n = 10
-    m = 3
-    k_measured = (0,) * (m // 2)
-    p = 1
-    tspan = np.linspace(0, 1, 3)
-    states = [f_state(t, p, k_measured, m, n) for t in tspan]
-    # print(states)
-    # exit()
-    print(*(((s.dag() * s).full()[0, 0]).real for s in states))
-
-    # import qutip
-
-    # @np.vectorize
-    # def entropy_vn(t):
-    #     s = f_state(t, p, k_measured, m, n)
-    #     return qutip.entropy.entropy_vn(qutip.ptrace(s, [0, 1]))
-
-    # tspan = np.linspace(0, 1.5, 150)
-    # entropy_vn_span = entropy_vn(tspan)
-    # import matplotlib.pyplot as plt
-    # plt.plot(tspan, entropy_vn_span, label=f"p{p}m{m}n{n}k{''.join(map(str, k_measured))}")
-    # plt.legend()
-    # plt.show()
