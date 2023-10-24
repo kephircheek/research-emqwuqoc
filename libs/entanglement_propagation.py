@@ -79,7 +79,7 @@ def f_state_odd(t: float, p: int, k: tuple[int], m: int, n: int):
                     ),  # since last range added below)
                     ([k_] for k_ in k),
                 ),
-                [range(n + 1)]
+                [range(n + 1)],
             )
         )
     )
