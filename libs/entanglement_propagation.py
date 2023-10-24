@@ -103,12 +103,50 @@ def f_state_odd_k(t: float, p: int, k: tuple[int], m: int, n: int):
     )
 
 
-def rhob(s, n):
-    rho = s * s.dag
+def rho_b(t: float, p: int, k: tuple[int], m: int, n: int):
+    if m % 2 == 0:
+        return rho_b_even(t, p, k, m, n)
+    return rho_b_odd(t, p, k, m, n)
 
-    def k(i):
-        return k_state(0, i, 2, n) * bec.vacuum_state(
-            bec.BEC_Qubits.init_default(n, 0), n=2
+
+def rho_b_odd(t: float, p: int, k: tuple[int], m: int, n: int):
+    rho = np.zeros((n + 1, n + 1))
+    for km1, km2 in itertools.combinations_with_replacement(range(n + 1), 2):
+
+        def k_sets(k0, km):
+            return itertools.product(
+                *itertools.chain(
+                    [[k0]],
+                    *itertools.zip_longest(
+                        ([k_] for k_ in k[:-1]),
+                        (range(n + 1) for _ in range(0, m // 2 - 1)),
+                    ),
+                    [[k[-1]]],
+                    [[km]],
+                )
+            )
+
+        elem = sum(
+            sum(f_state_odd_k_coeff(t, p, k_, m, n) for k_ in k_sets(k0, km1))
+            * sum(
+                f_state_odd_k_coeff(t, p, k_, m, n) for k_ in k_sets(k0, km2)
+            ).conjugate()
+            for k0 in range(n + 1)
         )
 
-    rhob_k = sum(k(i) for i in range(n + 1))
+        rho[km1, km2] = elem
+        if km1 != km2:
+            rho[km2, km1] = elem.conjugate()
+
+    return rho
+
+
+def rho_b_ent(t: float, p: int, k: tuple[int], m: int, n: int):
+    r = rho_b(t, p, k, m, n)
+    eigvals = np.linalg.eigvals(r)
+    eigvals_sum = sum(eigvals)
+    return -sum(
+        l / eigvals_sum * math.log2(l / eigvals_sum)
+        for l in eigvals
+        if eigvals_sum > 1e-8 and l > 1e-8
+    )
