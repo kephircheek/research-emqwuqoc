@@ -86,16 +86,21 @@ def f_state_odd(t: float, p: int, k: tuple[int], m: int, n: int):
     return sum(f_state_odd_k(t, p, k, m, n) for k in k_sets) / norm
 
 
-def f_state_odd_k(t: float, p: int, k: tuple[int], m: int, n: int):
-    result = (
+def f_state_odd_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
+    return (
         math.sqrt(math.prod(math.comb(n, k[i]) for i in range(0, m, 2)))
         * math.prod(omega(t, j, k, n) for j in range(1, m - 1, 2))
         * math.prod(p_state_scalar(p, k[i], n) for i in range(2, m - 2, 2))
+    )
+
+
+def f_state_odd_k(t: float, p: int, k: tuple[int], m: int, n: int):
+    return (
+        f_state_odd_k_coeff(t, p, k, m, n)
         * k_state(0, k[0], 2, n)
         * k_state(1, k[m - 1], 2, n)
         * bec.vacuum_state(bec.BEC_Qubits.init_default(n, 0), n=2)
     )
-    return result
 
 
 def rhob(s, n):
