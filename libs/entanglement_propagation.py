@@ -194,7 +194,13 @@ def rho_b(t: float, p: int, k: tuple[int], m: int, n: int):
 
 def rho_b_ent(t: float, p: int, k: tuple[int], m: int, n: int):
     r = rho_b(t, p, k, m, n)
-    eigvals = [e.real for e in np.linalg.eigvals(r)]
+    return entropy_vn(r)
+
+
+def entropy_vn(m, base=2):
+    if base != 2:
+        raise ValueError("invalid base: {base} != 2")
+    eigvals = [v.real for v in np.linalg.eigvals(m)]
     eigvals_sum = sum(eigvals)
     return -sum(
         l / eigvals_sum * math.log2(l / eigvals_sum)
