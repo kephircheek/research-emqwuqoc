@@ -44,7 +44,7 @@ def p_state_scalar(p: int, k: int, n: int):
 
 
 def k_state(i: int, k: int, m: int, n: int):
-    return bec.fock_state_constructor(bec.BEC_Qubits.init_default(n, 0), m, k=i, i=k)
+    return bec.fock_state_constructor(bec.BEC_Qubits.init_default(n, 0), m, i=i, k=k)
 
 
 def f_state(t: float, p: int, k: tuple[int], m: int, n: int):
