@@ -36,6 +36,8 @@ def p_state_scalar_lm(l: int, m: int, p: int, k: int, n: int):
 
 
 def p_state_scalar(p: int, k: int, n: int):
+    if None in (p, k, n):
+        raise TypeError("expected integer, not 'None'")
     return sum(
         p_state_scalar_lm(l, m, p, k, n)
         for l, m in itertools.product(range(k + 1), range(n - k + 1))
