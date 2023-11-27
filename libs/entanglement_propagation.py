@@ -1,9 +1,11 @@
-from dataclasses import dataclass
 import itertools
 import math
+from dataclasses import dataclass
 
 import bec
+import joblib
 import numpy as np
+from tqdm import tqdm
 
 
 def xi(j: int, k: tuple[int], n: int):
@@ -145,7 +147,7 @@ def f_state_odd_k(t: float, p: int, k: tuple[int], m: int, n: int):
     )
 
 
-def rho_b(t: float, p: int, k: tuple[int], m: int, n: int):
+def rho_b(t: float, p: int, k: tuple[int], m: int, n: int) -> list[list[float]]:
     rho = np.zeros((n + 1, n + 1), dtype=complex)
     for km1, km2 in itertools.combinations_with_replacement(range(n + 1), 2):
 
@@ -191,7 +193,7 @@ def rho_b(t: float, p: int, k: tuple[int], m: int, n: int):
         if km1 != km2:
             rho[km2, km1] = elem.conjugate()
 
-    return rho
+    return rho.tolist()
 
 
 def rho_b_ent(t: float, p: int, k: tuple[int], m: int, n: int):
@@ -209,3 +211,80 @@ def entropy_vn(m, base=2):
         for l in eigvals
         if eigvals_sum > 1e-13 and l > 1e-13
     )
+
+
+@dataclass(frozen=True)
+class PropagateEntanglementTask:
+    n_bosons: int
+    n_sites: int
+    t_span: tuple[float]
+    k_measured: list[int] = None
+    projection: int = None
+
+    def __post_init__(self):
+        if self.k_measured is None:
+            object.__setattr__(
+                self,
+                "k_measured",
+                (self.n_bosons,) * (self.n_sites // 2 - ((self.n_sites + 1) % 2)),
+            )
+        if self.projection is None and self.n_sites > 3:
+            object.__setattr__(self, "projection", self.n_bosons)
+
+    @property
+    def t_list(self):
+        return list(np.linspace(*self.t_span))
+
+    @property
+    def label(self):
+        return (
+            f"n{self.n_bosons}m{self.n_sites}"
+            + (
+                f"k{','.join(map(str, self.k_measured))}"
+                if len(self.k_measured) > 0
+                else ""
+            )
+            + (f"p{self.projection}" if self.projection is not None else "")
+        )
+
+    def run(self, verbose=True, n_jobs=-2):
+        states = joblib.Parallel(n_jobs=n_jobs)(
+            joblib.delayed(rho_b)(
+                t,
+                p=self.projection,
+                k=self.k_measured,
+                m=self.n_sites,
+                n=self.n_bosons,
+            )
+            for t in tqdm(self.t_list, postfix=self.label, disable=not verbose)
+        )
+        return PropagateEntanglementResult(task=self, t_list=self.t_list, states=states)
+
+
+@dataclass(frozen=True)
+class PropagateEntanglementResult:
+    task: PropagateEntanglementTask
+    t_list: list[float]
+    states: list[list[float]]
+
+    def entropies(self, verbose=False):
+        return [entropy_vn(s) for s in tqdm(self.states, disable=not verbose)]
+
+    def reveal_state(self, indx: int):
+        rho = 0
+        model = bec.BEC_Qubits.init_default(self.task.n_bosons, 0)
+        state = self.states[indx]
+        for km1, km2 in itertools.combinations_with_replacement(
+            range(self.task.n_bosons + 1), 2
+        ):
+            elem = state[km1][km2]
+            km1_vec = bec.fock_state_constructor(
+                model, n=1, i=0, k=km1
+            ) * bec.vacuum_state(model, n=1)
+            km2_vec = bec.fock_state_constructor(
+                model, n=1, i=0, k=km2
+            ) * bec.vacuum_state(model, n=1)
+            rho += km1_vec * km2_vec.dag() * elem
+            if km1 != km2:
+                rho += km2_vec * km1_vec.dag() * elem.conjugate()
+        return rho / 2**self.task.n_bosons  # `... / 2^n` added for Tr{rho} == 1
