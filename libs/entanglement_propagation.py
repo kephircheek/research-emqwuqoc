@@ -256,7 +256,7 @@ class PropagateEntanglementTask:
                 m=self.n_sites,
                 n=self.n_bosons,
             )
-            for t in tqdm(self.t_list, postfix=self.label, disable=not verbose)
+            for t in tqdm(self.t_list, postfix=self.label, disable=not verbose, ncols=80)
         )
         return PropagateEntanglementResult(task=self, t_list=self.t_list, states=states)
 
