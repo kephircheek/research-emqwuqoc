@@ -9,6 +9,10 @@ from tqdm import tqdm
 from qutip import fock, tensor, Qobj
 
 
+def comb(n: int, k: int):
+    return math.comb(n, k)
+
+
 def xi(j: int, k: tuple[int], n: int):
     """See comment in Eq.7."""
     return n - 2 * k[j]
@@ -17,7 +21,7 @@ def xi(j: int, k: tuple[int], n: int):
 def omega(t: float, j: int, k: tuple[int], n: int):
     """See Eq.13."""
     return (
-        math.sqrt(math.comb(n, k[j]))
+        math.sqrt(comb(n, k[j]))
         * math.cos((xi(j - 1, k, n) + xi(j + 1, k, n)) * t) ** k[j]
         * math.sin((xi(j - 1, k, n) + xi(j + 1, k, n)) * t) ** (n - k[j])
     )
@@ -26,8 +30,8 @@ def omega(t: float, j: int, k: tuple[int], n: int):
 def p_state_scalar_lm(l: int, m: int, p: int, k: int, n: int):
     return (
         (-1) ** (n - k - m)
-        * math.comb(k, l)
-        * math.comb(n - k, m)
+        * comb(k, l)
+        * comb(n - k, m)
         * math.sqrt(
             math.factorial(l + m)
             * math.factorial(n - l - m)
@@ -95,8 +99,8 @@ def f_state_even(*args, **kwargs):
 def f_state_even_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
     return (
         math.sqrt(
-            math.prod(math.comb(n, k[i]) for i in range(0, m - 1, 2))
-            * math.comb(n, k[-1])
+            math.prod(comb(n, k[i]) for i in range(0, m - 1, 2))
+            * comb(n, k[-1])
         )
         * math.prod(omega(t, j, k, n) for j in range(1, m - 2, 2))
         * math.prod(p_state_scalar(p, k[i], n) for i in range(2, m - 1, 2))
@@ -130,7 +134,7 @@ def f_state_odd(t: float, p: int, k: tuple[int], m: int, n: int):
 
 def f_state_odd_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
     return (
-        math.sqrt(math.prod(math.comb(n, k[i]) for i in range(0, m, 2)))
+        math.sqrt(math.prod(comb(n, k[i]) for i in range(0, m, 2)))
         * math.prod(omega(t, j, k, n) for j in range(1, m - 1, 2))
         * math.prod(p_state_scalar(p, k[i], n) for i in range(2, m - 2, 2))
     )
