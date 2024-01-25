@@ -1,6 +1,8 @@
+import copy
 import itertools
+import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import bec
 import joblib
@@ -294,3 +296,111 @@ class PropagateEntanglementResult:
             if km1 != km2:
                 rho += km2_vec * km1_vec.dag() * elem.conjugate()
         return rho / 2**self.task.n_bosons  # `... / 2^n` added for Tr{rho} == 1
+
+    @classmethod
+    def init_form_dict(cls, dct):
+        dct = copy.deepcopy(dct)
+        task = PropagateEntanglementTask(**dct.pop("task"))
+        return cls(task=task, **dct)
+
+    @staticmethod
+    def json_default(obj):
+        if isinstance(obj, complex):
+            return {"__complex__": [obj.real, obj.imag]}
+        if isinstance(obj, tuple):
+            return {"__tuple__": obj}
+        return obj
+
+    def dump(self, f):
+        dct = asdict(self)
+        return json.dump(dct, f, default=self.json_default)
+
+    @staticmethod
+    def json_object_hook(dct):
+        if v := dct.get("__complex__"):
+            return complex(*v)
+        if v := dct.get("__tuple__"):
+            return tuple(v)
+        return dct
+
+    @classmethod
+    def load(cls, f):
+        return cls.init_form_dict(json.load(f, object_hook=cls.json_object_hook))
+
+
+def f_state_fidelity_even(t: float, p: int, k: tuple[int], m: int, n: int):
+    norm = 2 ** ((m * n + 2 * n) / 4)
+    k_sets = list(
+        itertools.product(
+            *itertools.chain(
+                *itertools.zip_longest(
+                    (range(n + 1) for _ in range(m // 2 - 1)),
+                    ([k_] for k_ in k),
+                ),
+                [range(n + 1)],
+            )
+        )
+    )
+    return abs(sum(f_state_fidelity_even_k(t, p, k, m, n) for k in k_sets) / norm)
+
+
+def f_state_fidelity_even_k(t: float, p: int, k: tuple[int], m: int, n: int):
+    return (
+        k[0]
+        * comb(n, k[0])
+        * math.sqrt(math.prod(comb(n, k[i]) for i in range(2, m - 1, 2)))
+        * math.prod(omega(t, j, k, n) for j in range(1, m - 2, 2))
+        * math.prod(p_state_scalar(p, k[i], n) for i in range(2, m - 1, 2))
+        * np.cos((2 * k[0] - 2 * k[-2]) * t) ** n
+    )
+
+
+def f_state_norm_even(t: float, p: int, k: tuple[int], m: int, n: int):
+    norm = 2 ** (m * n / 2)
+    k_ = list(
+        itertools.chain(
+            *itertools.zip_longest(
+                ([k_] for k_ in k),
+                (range(n + 1) for _ in range(m // 2 - 1)),
+            ),
+            [[None]],
+        )
+    )
+
+    k_sets = list(itertools.product(range(n + 1), *k_, *k_))
+    result = abs(
+        sum(f_state_norm_even_k(t, p, k[:m], (k[0],) + k[m:], m, n) for k in k_sets)
+        / norm
+    )
+    return result + 1
+
+
+def f_state_norm_even_k(
+    t: float, p: int, kl: tuple[int], kr: tuple[int], m: int, n: int
+):
+    return (
+        comb(n, kl[0])
+        * math.sqrt(math.prod(comb(n, kl[i]) for i in range(2, m - 1, 2)))
+        * math.sqrt(math.prod(comb(n, kr[i]) for i in range(2, m - 1, 2)))
+        * math.prod(omega(t, j, kl, n) for j in range(1, m - 2, 2))
+        * math.prod(omega(t, j, kr, n).conjugate() for j in range(1, m - 2, 2))
+        * math.prod(p_state_scalar(p, kl[i], n) for i in range(2, m - 1, 2))
+        * math.prod(p_state_scalar(p, kr[i], n) for i in range(2, m - 1, 2))
+        * np.cos((2 * kl[-2] - 2 * kr[-2]) * t) ** n
+    )
+
+
+def f_state_fidelity_odd(t: float, p: int, k: tuple[int], m: int, n: int):
+    norm = 2 ** ((m * n + 2 * n) / 4)
+    k_sets = list(
+        itertools.product(
+            *itertools.chain(
+                *itertools.zip_longest(
+                    (range(n + 1) for _ in range(m // 2 - 1)),
+                    ([k_] for k_ in k),
+                ),
+                [range(n + 1)],
+            )
+        )
+    )
+    return abs(sum(f_state_fidelity_even_k(t, p, k, m, n) for k in k_sets) / norm)
