@@ -5,8 +5,8 @@ from dataclasses import dataclass
 import bec
 import joblib
 import numpy as np
+from qutip import Qobj, fock, tensor
 from tqdm import tqdm
-from qutip import fock, tensor, Qobj
 
 
 def comb(n: int, k: int):
@@ -90,18 +90,19 @@ def f_state_even(*args, **kwargs):
             )
         )
     )
-    return sum(
-        f_state_even_k_coeff(t, p, k, m, n) * tensor(fock(k[0], n), fock(k[m - 1], n))
-        for k in k_sets
-    ) / norm
+    return (
+        sum(
+            f_state_even_k_coeff(t, p, k, m, n)
+            * tensor(fock(k[0], n), fock(k[m - 1], n))
+            for k in k_sets
+        )
+        / norm
+    )
 
 
 def f_state_even_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
     return (
-        math.sqrt(
-            math.prod(comb(n, k[i]) for i in range(0, m - 1, 2))
-            * comb(n, k[-1])
-        )
+        math.sqrt(math.prod(comb(n, k[i]) for i in range(0, m - 1, 2)) * comb(n, k[-1]))
         * math.prod(omega(t, j, k, n) for j in range(1, m - 2, 2))
         * math.prod(p_state_scalar(p, k[i], n) for i in range(2, m - 1, 2))
         * (np.exp(1j * xi(m - 2, k, n) * t) / math.sqrt(2)) ** k[-1]
@@ -126,10 +127,14 @@ def f_state_odd(t: float, p: int, k: tuple[int], m: int, n: int):
             )
         )
     )
-    return sum(
-        f_state_odd_k_coeff(t, p, k, m, n) * tensor(fock(k[0], n), fock(k[m - 1], n))
-        for k in k_sets
-    ) / norm
+    return (
+        sum(
+            f_state_odd_k_coeff(t, p, k, m, n)
+            * tensor(fock(k[0], n), fock(k[m - 1], n))
+            for k in k_sets
+        )
+        / norm
+    )
 
 
 def f_state_odd_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
@@ -238,9 +243,10 @@ class PropagateEntanglementTask:
                 else ""
             )
             + (f"p{self.projection}" if self.projection is not None else "")
+            + f"t{self.t_span[0]};{self.t_span[1]};{self.t_span[2]}"
         )
 
-    def run(self, verbose=True, n_jobs=-2):
+    def run(self, verbose=True, n_jobs=-2, ncols=80):
         states = joblib.Parallel(n_jobs=n_jobs)(
             joblib.delayed(rho_b)(
                 t,
@@ -249,7 +255,9 @@ class PropagateEntanglementTask:
                 m=self.n_sites,
                 n=self.n_bosons,
             )
-            for t in tqdm(self.t_list, postfix=self.label, disable=not verbose, ncols=80)
+            for t in tqdm(
+                self.t_list, postfix=self.label, disable=not verbose, ncols=ncols
+            )
         )
         return PropagateEntanglementResult(task=self, t_list=self.t_list, states=states)
 
@@ -258,14 +266,15 @@ class PropagateEntanglementTask:
 class PropagateEntanglementResult:
     task: PropagateEntanglementTask
     t_list: list[float]
-    states: list[list[complex]]
+    states: list[list[list[complex]]]
 
     def entropies(self, verbose=False):
         return [entropy_vn(s) for s in tqdm(self.states, disable=not verbose)]
 
     def to_Qobj(self, s: list[list[complex]]):
         from qutip import Qobj
-        return Qobj(s, dims=[[self.task.n_bosons + 1]]*2)
+
+        return Qobj(s, dims=[[self.task.n_bosons + 1]] * 2)
 
     def reveal_state(self, indx: int):
         rho = 0
