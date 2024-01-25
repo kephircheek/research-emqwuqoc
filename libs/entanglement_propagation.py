@@ -6,6 +6,7 @@ import bec
 import joblib
 import numpy as np
 from tqdm import tqdm
+from qutip import fock, tensor, Qobj
 
 
 def xi(j: int, k: tuple[int], n: int):
@@ -257,6 +258,10 @@ class PropagateEntanglementResult:
 
     def entropies(self, verbose=False):
         return [entropy_vn(s) for s in tqdm(self.states, disable=not verbose)]
+
+    def to_Qobj(self, s: list[list[complex]]):
+        from qutip import Qobj
+        return Qobj(s, dims=[[self.task.n_bosons + 1]]*2)
 
     def reveal_state(self, indx: int):
         rho = 0
