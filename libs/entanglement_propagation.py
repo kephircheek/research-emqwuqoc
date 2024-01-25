@@ -85,16 +85,10 @@ def f_state_even(*args, **kwargs):
             )
         )
     )
-    return sum(f_state_even_k(t, p, k, m, n) for k in k_sets) / norm
-
-
-def f_state_even_k(t: float, p: int, k: tuple[int], m: int, n: int):
-    return (
-        f_state_even_k_coeff(t, p, k, m, n)
-        * k_state(0, k[0], 2, n)
-        * k_state(1, k[m - 1], 2, n)
-        * bec.vacuum_state(bec.BEC_Qubits.init_default(n, 0), n=2)
-    )
+    return sum(
+        f_state_even_k_coeff(t, p, k, m, n) * tensor(fock(k[0], n), fock(k[m - 1], n))
+        for k in k_sets
+    ) / norm
 
 
 def f_state_even_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
@@ -127,7 +121,10 @@ def f_state_odd(t: float, p: int, k: tuple[int], m: int, n: int):
             )
         )
     )
-    return sum(f_state_odd_k(t, p, k, m, n) for k in k_sets) / norm
+    return sum(
+        f_state_odd_k_coeff(t, p, k, m, n) * tensor(fock(k[0], n), fock(k[m - 1], n))
+        for k in k_sets
+    ) / norm
 
 
 def f_state_odd_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
@@ -138,16 +135,7 @@ def f_state_odd_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
     )
 
 
-def f_state_odd_k(t: float, p: int, k: tuple[int], m: int, n: int):
-    return (
-        f_state_odd_k_coeff(t, p, k, m, n)
-        * k_state(0, k[0], 2, n)
-        * k_state(1, k[m - 1], 2, n)
-        * bec.vacuum_state(bec.BEC_Qubits.init_default(n, 0), n=2)
-    )
-
-
-def rho_b(t: float, p: int, k: tuple[int], m: int, n: int) -> list[list[float]]:
+def rho_b(t: float, p: int, k: tuple[int], m: int, n: int) -> list[list[complex]]:
     rho = np.zeros((n + 1, n + 1), dtype=complex)
     for km1, km2 in itertools.combinations_with_replacement(range(n + 1), 2):
 
@@ -265,7 +253,7 @@ class PropagateEntanglementTask:
 class PropagateEntanglementResult:
     task: PropagateEntanglementTask
     t_list: list[float]
-    states: list[list[float]]
+    states: list[list[complex]]
 
     def entropies(self, verbose=False):
         return [entropy_vn(s) for s in tqdm(self.states, disable=not verbose)]
