@@ -2,7 +2,7 @@ import copy
 import itertools
 import json
 import math
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 import bec
 import joblib
@@ -15,42 +15,51 @@ def comb(n: int, k: int):
     return math.comb(n, k)
 
 
-def xi(j: int, k: tuple[int], n: int):
-    """See comment in Eq.7."""
-    return n - 2 * k[j]
-
-
-def omega(t: float, j: int, k: tuple[int], n: int):
-    """See Eq.13."""
+def projection_on_qubit_state(q: int, alpha: float, n: int):
+    """See Eq. 20."""
     return (
-        math.sqrt(comb(n, k[j]))
-        * math.cos((xi(j - 1, k, n) + xi(j + 1, k, n)) * t) ** k[j]
-        * math.sin((xi(j - 1, k, n) + xi(j + 1, k, n)) * t) ** (n - k[j])
+        1j ** (n - q)
+        * np.exp(1j * n * alpha / 2)
+        * math.sqrt(comb(n, q))
+        * math.cos(alpha / 2) ** q
+        * math.sin(alpha / 2) ** (n - q)
     )
 
 
-def p_state_scalar_lm(l: int, m: int, p: int, k: int, n: int):
+def _projection_on_z_fock_state_lm(l: int, m: int, q: int, k: int, n: int):
     return (
-        (-1) ** (n - k - m)
-        * comb(k, l)
-        * comb(n - k, m)
+        (-1) ** (n - q - m)
+        * comb(q, l)
+        * comb(n - q, m)
         * math.sqrt(
             math.factorial(l + m)
             * math.factorial(n - l - m)
-            / math.factorial(k)
-            / math.factorial(n - k)
+            / math.factorial(q)
+            / math.factorial(n - q)
             / 2**n
         )
     )
 
 
-def p_state_scalar(p: int, k: int, n: int):
-    if None in (p, k, n):
+def projection_on_z_fock_state(q: int, k: int, n: int):
+    """See Eq. 21."""
+    if None in (q, k, n):
         raise TypeError("expected integer, not 'None'")
+
     return sum(
-        p_state_scalar_lm(l, m, p, k, n)
-        for l, m in itertools.product(range(k + 1), range(n - k + 1))
-        if p == (l + m)
+        _projection_on_z_fock_state_lm(l, m, q, k, n)
+        for l, m in itertools.product(range(q + 1), range(n - q + 1))
+        if k == (l + m)
+    )
+
+
+def omega(t: float, q: int, j: int, k: tuple[int], phase: float, n: int):
+    if j % 2 == 1:
+        return projection_on_qubit_state(q, (k[j - 1] - k[j + 1]) * t, n)
+    return (
+        np.exp(1j * k[j] * phase)
+        * math.sqrt(comb(n, k[j]))
+        * projection_on_z_fock_state(q, k[j], n)
     )
 
 
@@ -58,7 +67,7 @@ def k_state(i: int, k: int, m: int, n: int):
     return bec.fock_state_constructor(bec.BEC_Qubits.init_default(n, 0), m, i=i, k=k)
 
 
-def f_state(t: float, p: int, k: tuple[int], m: int, n: int):
+def f_state(t: float, q: tuple[int], m: int, n: int):
     """
     Return final state, see eq. 11 and eq. 12.
 
@@ -69,136 +78,40 @@ def f_state(t: float, p: int, k: tuple[int], m: int, n: int):
         m: number of qubits in chain
         n: number of bosons in qubit
     """
+
+    if len(q) < (m - 2):
+        raise ValueError("too few measured sites")
+    q = (None,) + tuple(q) + (None,)
+
     if m % 2 == 0:
-        return f_state_even(t, p, k, m, n)
-    return f_state_odd(t, p, k, m, n)
+        norm = 2 ** (m * n / 4)
+    else:
+        norm = 2 ** ((m + 1) * n / 4)
 
+    fock_range = range(n + 1)
+    k_ranges = [fock_range if i % 2 == 0 else [None] for i in range(m)]
+    if m % 2 == 0:
+        k_ranges[-1] = fock_range  # reveal coherent state via fock states
+    k_sets = list(itertools.product(*k_ranges))
 
-def f_state_even(*args, **kwargs):
-    if len(k) < (m // 2 - 1):
-        raise ValueError("too few measured sites")
-    norm = 2 ** (m * n / 4)
-    k_sets = list(
-        itertools.product(
-            *itertools.chain(
-                *itertools.zip_longest(
-                    (
-                        range(n + 1) for _ in range(0, m // 2)
-                    ),  # since last range added below)
-                    ([k_] for k_ in k),
-                ),
-                [range(n + 1)],
-                [range(n + 1)],
-            )
-        )
-    )
     return (
         sum(
-            f_state_even_k_coeff(t, p, k, m, n)
-            * tensor(fock(k[0], n), fock(k[m - 1], n))
+            f_state_coeff(t, q, k, m, n)
+            * tensor(fock(n + 1, k[0]), fock(n + 1, k[m - 1]))
             for k in k_sets
         )
         / norm
     )
 
 
-def f_state_even_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
-    return (
-        math.sqrt(math.prod(comb(n, k[i]) for i in range(0, m - 1, 2)) * comb(n, k[-1]))
-        * math.prod(omega(t, j, k, n) for j in range(1, m - 2, 2))
-        * math.prod(p_state_scalar(p, k[i], n) for i in range(2, m - 1, 2))
-        * (np.exp(1j * xi(m - 2, k, n) * t) / math.sqrt(2)) ** k[-1]
-        * (np.exp(-1j * xi(m - 2, k, n) * t) / math.sqrt(2)) ** (n - k[-1])
-    )
-
-
-def f_state_odd(t: float, p: int, k: tuple[int], m: int, n: int):
-    if len(k) < m // 2:
-        raise ValueError("too few measured sites")
-    norm = 2 ** ((m + 1) * n / 4)
-    k_sets = list(
-        itertools.product(
-            *itertools.chain(
-                *itertools.zip_longest(
-                    (
-                        range(n + 1) for _ in range(0, m // 2)
-                    ),  # since last range added below)
-                    ([k_] for k_ in k),
-                ),
-                [range(n + 1)],
-            )
-        )
-    )
-    return (
-        sum(
-            f_state_odd_k_coeff(t, p, k, m, n)
-            * tensor(fock(k[0], n), fock(k[m - 1], n))
-            for k in k_sets
-        )
-        / norm
-    )
-
-
-def f_state_odd_k_coeff(t: float, p: int, k: tuple[int], m: int, n: int):
-    return (
-        math.sqrt(math.prod(comb(n, k[i]) for i in range(0, m, 2)))
-        * math.prod(omega(t, j, k, n) for j in range(1, m - 1, 2))
-        * math.prod(p_state_scalar(p, k[i], n) for i in range(2, m - 2, 2))
-    )
-
-
-def rho_b(t: float, p: int, k: tuple[int], m: int, n: int) -> list[list[complex]]:
-    rho = np.zeros((n + 1, n + 1), dtype=complex)
-    for km1, km2 in itertools.combinations_with_replacement(range(n + 1), 2):
-
-        def k_sets_odd(k0, km):
-            return itertools.product(
-                *itertools.chain(
-                    [[k0]],
-                    *itertools.zip_longest(
-                        ([k_] for k_ in k[:-1]),
-                        (range(n + 1) for _ in range(0, m // 2 - 1)),
-                    ),
-                    [[k[-1]]],
-                    [[km]],
-                )
-            )
-
-        def k_sets_even(k0, km):
-            return itertools.product(
-                *itertools.chain(
-                    [[k0]],
-                    *itertools.zip_longest(
-                        ([k_] for k_ in k),
-                        (range(n + 1) for _ in range(0, m // 2 - 1)),
-                    ),
-                    [[km]],
-                )
-            )
-
-        if m % 2 == 0:
-            f_state_k_coeff = f_state_even_k_coeff
-            k_sets = k_sets_even
-        else:
-            f_state_k_coeff = f_state_odd_k_coeff
-            k_sets = k_sets_odd
-
-        elem = sum(
-            sum(f_state_k_coeff(t, p, k_, m, n) for k_ in k_sets(k0, km1))
-            * sum(f_state_k_coeff(t, p, k_, m, n) for k_ in k_sets(k0, km2)).conjugate()
-            for k0 in range(n + 1)
-        )
-
-        rho[km1, km2] = elem
-        if km1 != km2:
-            rho[km2, km1] = elem.conjugate()
-
-    return rho.tolist()
-
-
-def rho_b_ent(t: float, p: int, k: tuple[int], m: int, n: int):
-    r = rho_b(t, p, k, m, n)
-    return entropy_vn(r)
+def f_state_coeff(t: float, q: tuple[int], k: tuple[int], m: int, n: int):
+    coeff = math.prod((omega(t, q[j], j, k, 0, n) for j in range(1, m - 1)))
+    coeff *= math.sqrt(comb(n, k[0]))
+    coeff *= math.sqrt(comb(n, k[-1]))
+    if m % 2 == 0:
+        coeff *= 1 / math.sqrt(2) ** n
+        coeff *= np.exp(1j * k[-2] * t * k[-1])
+    return coeff
 
 
 def entropy_vn(m, base=2):
